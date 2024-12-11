@@ -1,0 +1,106 @@
+---
+title: "Conservative Dataset ETL"
+author: "Angelina Lu"
+date: "2024-12-02"
+output: pdf_document
+---
+
+```{r}
+install.packages("RedditExtractoR")
+install.packages("tidytext")
+```
+
+```{r}
+library(tidytext)
+library(RedditExtractoR)
+```
+
+## Collecting reddit data
+```{r}
+# We search for submissions which contain the word 'biden' to subreddit 'liberal'. From the resulting df, we get the URLs pointing to each submission. 
+trump_urls <- find_thread_urls(keywords = "trump",
+                                       ㄓㄓ,
+                                       sort_by = "top",
+                                       period = "year")
+
+head(trump_urls$url)
+```
+
+```{r}
+conservative_trump_content1 <- get_thread_content(urls = trump_urls$url[1:60])
+conservative_trump_content2 <- get_thread_content(urls = trump_urls$url[61:120])
+conservative_trump_content3 <- get_thread_content(urls = trump_urls$url[121:180])
+conservative_trump_content4 <- get_thread_content(urls = trump_urls$url[181:244])
+```
+
+```{r}
+saveRDS(conservative_trump_content1, "conservative_trump_content1.rds")
+saveRDS(conservative_trump_content2, "conservative_trump_content2.rds")
+saveRDS(conservative_trump_content3, "conservative_trump_content3.rds")
+saveRDS(conservative_trump_content4, "conservative_trump_content4.rds")
+```
+
+```{r}
+# Load necessary library
+library(dplyr)
+
+# List all .rds files in the same directory as the Rmd file
+rds_files <- list.files(path = "./", pattern = "\\.rds$", full.names = TRUE)
+
+# Initialize empty lists for df1 and df2
+df1_list <- list()
+df2_list <- list()
+
+# Loop through each .rds file
+for (file in rds_files) {
+  # Read the list from the .rds file
+  data_list <- readRDS(file)
+  
+  # Append df1 and df2 to their respective lists
+  df1_list <- append(df1_list, list(data_list[[1]]))
+  df2_list <- append(df2_list, list(data_list[[2]]))
+}
+
+# Combine all df1s and df2s into separate dataframes
+trump_threads <- bind_rows(df1_list)
+trump_comments <- bind_rows(df2_list)
+
+# View the combined dataframes
+head(trump_threads)
+head(trump_comments)
+```
+
+
+```{r}
+library(dplyr)
+library(lubridate)
+
+threads <- trump_threads %>%
+  mutate(date = as.integer(format(as.Date(date), "%Y%m%d")))
+comments <- trump_comments %>%
+  mutate(date = as.integer(format(as.Date(date), "%Y%m%d")))
+
+head(trump_comments)
+head(trump_threads)
+```
+
+```{r}
+threads_before <- threads %>%
+  filter(date >= 20240613 & date <= 20240712)
+threads_after <- threads %>%
+  filter(date >= 20240713 & date <= 20240812)
+
+comments_before <- comments %>%
+  filter(date >= 20240613 & date <= 20240712)
+comments_after <- comments %>%
+  filter(date >= 20240713 & date <= 20240812)
+```
+
+```{r}
+saveRDS(threads_before,  "conservative_threads_before.rds")
+saveRDS(threads_after,   "conservative_threads_after.rds")
+saveRDS(comments_before, "conservative_comments_before.rds")
+saveRDS(comments_after,  "conservative_comments_after.rds")
+```
+
+## 
