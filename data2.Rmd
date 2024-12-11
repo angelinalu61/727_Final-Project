@@ -1,0 +1,98 @@
+---
+title: "Liberal Dataset ETL"
+author: "Angelina Lu"
+date: "2024-12-02"
+output: pdf_document
+---
+
+```{r}
+library(tidytext)
+library(RedditExtractoR)
+```
+
+## Collecting reddit data
+```{r}
+# We search for submissions which contain the word 'biden' to subreddit 'liberal'. From the resulting df, we get the URLs pointing to each submission. 
+liberal_trump_urls <- find_thread_urls(keywords = "trump",
+                                       subreddit = "Liberal",
+                                       sort_by = "top",
+                                       period = "year")
+head(liberal_trump_urls)
+```
+
+```{r}
+liberal_trump_content4 <- get_thread_content(urls = trump_urls$url[181:242])
+```
+
+```{r}
+saveRDS(liberal_trump_content4, "liberal_trump_content4.rds")
+```
+
+```{r}
+# Load necessary library
+library(dplyr)
+
+# List all .rds files in the same directory as the Rmd file
+rds_files <- list.files(path = "./", pattern = "\\.rds$", full.names = TRUE)
+
+# Initialize empty lists for df1 and df2
+df1_list <- list()
+df2_list <- list()
+
+# Loop through each .rds file
+for (file in rds_files) {
+  # Read the list from the .rds file
+  data_list <- readRDS(file)
+  
+  # Append df1 and df2 to their respective lists
+  df1_list <- append(df1_list, list(data_list[[1]]))
+  df2_list <- append(df2_list, list(data_list[[2]]))
+}
+
+# Combine all df1s and df2s into separate dataframes
+trump_threads <- bind_rows(df1_list)
+trump_comments <- bind_rows(df2_list)
+
+# View the combined dataframes
+head(trump_threads)
+head(trump_comments)
+```
+
+
+```{r}
+library(dplyr)
+library(lubridate)
+
+threads <- trump_threads %>%
+  mutate(date = as.integer(format(as.Date(date), "%Y%m%d")))
+comments <- trump_comments %>%
+  mutate(date = as.integer(format(as.Date(date), "%Y%m%d")))
+
+head(trump_comments)
+head(trump_threads)
+```
+
+```{r}
+liberal_threads_before <- threads %>%
+  filter(date >= 20240613 & date <= 20240712)
+liberal_threads_after <- threads %>%
+  filter(date >= 20240713 & date <= 20240812)
+
+liberal_comments_before <- comments %>%
+  filter(date >= 20240613 & date <= 20240712)
+liberal_comments_after <- comments %>%
+  filter(date >= 20240713 & date <= 20240812)
+```
+
+```{r}
+saveRDS(liberal_threads_before,  "liberal_threads_before.rds")
+saveRDS(liberal_threads_after,   "liberal_threads_after.rds")
+saveRDS(liberal_comments_before, "liberal_comments_before.rds")
+saveRDS(liberal_comments_after,  "liberal_comments_after.rds")
+```
+
+```{r}
+your_dataframe <- readRDS("your_file.rds")
+```
+
+## 
