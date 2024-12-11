@@ -19,7 +19,6 @@ library(RedditExtractoR)
 ```{r}
 # We search for submissions which contain the word 'biden' to subreddit 'liberal'. From the resulting df, we get the URLs pointing to each submission. 
 trump_urls <- find_thread_urls(keywords = "trump",
-                                       ㄓㄓ,
                                        sort_by = "top",
                                        period = "year")
 
