@@ -1,0 +1,271 @@
+---
+title: "Untitled"
+author: "Yuchen Ding"
+date: "2024-12-03"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+conservative_comments_after <- readRDS("/Users/asuka/Library/Containers/com.tencent.xinWeChat/Data/Library/Application Support/com.tencent.xinWeChat/2.0b4.0.9/357cac7ebfe1764c975a2f32eeae294f/Message/MessageTemp/5bfb0bb1c29bd0e584927c7db99099dd/File/conservative_comments_after.rds")
+
+conservative_comments_before <- readRDS("/Users/asuka/Library/Containers/com.tencent.xinWeChat/Data/Library/Application Support/com.tencent.xinWeChat/2.0b4.0.9/357cac7ebfe1764c975a2f32eeae294f/Message/MessageTemp/5bfb0bb1c29bd0e584927c7db99099dd/File/conservative_comments_before.rds")
+
+conservative_threads_after <- readRDS("/Users/asuka/Library/Containers/com.tencent.xinWeChat/Data/Library/Application Support/com.tencent.xinWeChat/2.0b4.0.9/357cac7ebfe1764c975a2f32eeae294f/Message/MessageTemp/5bfb0bb1c29bd0e584927c7db99099dd/File/conservative_threads_after.rds")
+
+conservative_threads_before <- readRDS("/Users/asuka/Library/Containers/com.tencent.xinWeChat/Data/Library/Application Support/com.tencent.xinWeChat/2.0b4.0.9/357cac7ebfe1764c975a2f32eeae294f/Message/MessageTemp/5bfb0bb1c29bd0e584927c7db99099dd/File/conservative_threads_before.rds")
+
+liberal_threads_before <- readRDS("/Users/asuka/Library/Containers/com.tencent.xinWeChat/Data/Library/Application Support/com.tencent.xinWeChat/2.0b4.0.9/357cac7ebfe1764c975a2f32eeae294f/Message/MessageTemp/5bfb0bb1c29bd0e584927c7db99099dd/File/liberal_threads_before.rds")
+
+liberal_comments_before <- readRDS("/Users/asuka/Library/Containers/com.tencent.xinWeChat/Data/Library/Application Support/com.tencent.xinWeChat/2.0b4.0.9/357cac7ebfe1764c975a2f32eeae294f/Message/MessageTemp/5bfb0bb1c29bd0e584927c7db99099dd/File/liberal_comments_before.rds")
+
+liberal_comments_after <- readRDS("/Users/asuka/Library/Containers/com.tencent.xinWeChat/Data/Library/Application Support/com.tencent.xinWeChat/2.0b4.0.9/357cac7ebfe1764c975a2f32eeae294f/Message/MessageTemp/5bfb0bb1c29bd0e584927c7db99099dd/File/liberal_comments_after.rds")
+
+liberal_threads_after <- readRDS("/Users/asuka/Library/Containers/com.tencent.xinWeChat/Data/Library/Application Support/com.tencent.xinWeChat/2.0b4.0.9/357cac7ebfe1764c975a2f32eeae294f/Message/MessageTemp/5bfb0bb1c29bd0e584927c7db99099dd/File/liberal_threads_after.rds")
+```
+
+```{r}
+install.packages("syuzhet")
+library(syuzhet)
+library(ggplot2)
+```
+
+```{r}
+library(dplyr)
+
+data_list <- list(
+  conservative_comments_after,
+  conservative_comments_before,
+  conservative_threads_after,
+  conservative_threads_before,
+  liberal_comments_before,
+  liberal_comments_after,
+  liberal_threads_after,
+  liberal_threads_before
+)
+  
+process_comments <- function(data) {
+  data %>%
+    filter(!comment %in% c("[removed]", "[deleted]")) %>%
+    mutate(sentiment = get_nrc_sentiment(comment)) 
+}
+
+process_threads <- function(data) {
+  data %>%
+    mutate(combined_text = paste(title, text, sep = " ")) %>%
+    filter(!combined_text %in% c("[deleted]")) %>%
+    mutate(sentiment = get_nrc_sentiment(combined_text)) 
+}
+
+
+
+results <- list()
+
+for (i in seq_along(data_list)) {
+  data <- data_list[[i]]
+  if ("comment" %in% colnames(data)) { 
+    results[[i]] <- process_comments(data)
+  } else if (all(c("title", "text") %in% colnames(data))) { 
+    results[[i]] <- process_threads(data)
+  }
+}
+
+for (i in seq_along(results)) {
+  saveRDS(results[[i]], paste0("processed_data_", i, ".rds"))
+}
+```  
+    
+```{r}
+names(results) <- c(
+  "conservative_comments_after",
+  "conservative_comments_before",
+  "conservative_threads_after",
+  "conservative_threads_before",
+  "liberal_comments_before",
+  "liberal_comments_after",
+  "liberal_threads_after",
+  "liberal_threads_before"
+)
+```
+
+```{r} 
+str(results[["conservative_comments_after"]][["sentiment"]])
+```
+
+```{r}
+head(emotion_summary)
+```
+
+```{r}
+conservative_comments_after_emotion_summary <- results[["conservative_comments_after"]][["sentiment"]] %>%
+  summarise_all(sum) %>%
+  tidyr::gather(key = "emotion", value = "count")
+
+
+ggplot(conservative_comments_after_emotion_summary, aes(x = reorder(emotion, -count), y = count, fill = emotion)) +
+  geom_bar(stat = "identity") +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  labs(title = "Emotion Distribution",
+       x = "Emotion",
+       y = "Count")
+
+```
+
+```{r}
+emotion_summaries <- map(names(results), function(name) {
+  if ("sentiment" %in% names(results[[name]])) {
+    summary <- results[[name]][["sentiment"]] %>%
+      summarise_all(sum) %>%
+      tidyr::gather(key = "emotion", value = "count")
+  }
+})
+```
+
+```{r}
+new_names <- paste0(names(results), "_emotion_summary")
+names(emotion_summaries) <- c(new_names)
+```
+
+```{r}
+library(ggplot2)
+
+dir.create("emotion_charts", showWarnings = FALSE)
+
+walk(names(emotion_summaries), function(name) {
+  
+  emotion_summary <- emotion_summaries[[name]]
+  
+  
+  p <- ggplot(emotion_summary, aes(x = reorder(emotion, -count), y = count, fill = emotion)) +
+    geom_bar(stat = "identity") +
+    theme_minimal() +
+    theme(legend.position = "none") +
+    labs(title = paste("Emotion Distribution for", name),
+         x = "Emotion",
+         y = "Count")
+  
+  ggsave(filename = paste0("emotion_charts/", name, "_emotion_chart.png"),
+         plot = p, width = 8, height = 6)
+})
+
+```
+
+```{r}
+ggplot(emotion_summaries[["conservative_threads_before_emotion_summary"]], aes(x = reorder(emotion, -count), y = count, fill = emotion)) +
+  geom_bar(stat = "identity") +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  labs(title = "Emotion Distribution",
+       x = "Emotion",
+       y = "Count")
+```
+
+```{r}
+str(before_summary)
+str(after_summary)
+```
+
+```{r}
+library(dplyr)
+library(tidyr)
+
+
+before_combined_comments <- bind_rows(
+  results[["conservative_comments_before"]][["sentiment"]],
+  results[["liberal_comments_before"]][["sentiment"]]
+)
+
+
+after_combined_comments <- bind_rows(
+  results[["conservative_comments_after"]][["sentiment"]],
+  results[["liberal_comments_after"]][["sentiment"]]
+)
+
+before_summary_comments <- before_combined_comments %>%
+  summarise_all(sum) %>%
+  gather(key = "emotion", value = "count")
+
+after_summary_comments <- after_combined_comments %>%
+  summarise_all(sum) %>%
+  gather(key = "emotion", value = "count")
+```
+
+```{r}
+library(dplyr)
+library(tidyr)
+
+
+before_combined_threads <- bind_rows(
+  results[["conservative_threads_before"]][["sentiment"]],
+  results[["liberal_threads_before"]][["sentiment"]]
+)
+
+
+after_combined_threads <- bind_rows(
+  results[["conservative_threads_after"]][["sentiment"]],
+  results[["liberal_threads_after"]][["sentiment"]]
+)
+
+before_summary_threads <- before_combined_threads %>%
+  summarise_all(sum) %>%
+  gather(key = "emotion", value = "count")
+
+after_summary_threads <- after_combined_threads %>%
+  summarise_all(sum) %>%
+  gather(key = "emotion", value = "count")
+```
+
+
+```{r}
+install.packages("showtext")
+library(showtext)
+
+
+font_add_google("Alatsi", "alatsi")
+font_add_google("Quicksand", "quicksand")
+
+
+showtext_auto()
+library(ggplot2)
+
+party_colors <- c(
+  "positive" = "#FF5733",       # 深红
+  "negative" = "#3498DB",       # 深蓝
+  "anger" = "#B3CDE0",          # 淡蓝
+  "anticipation" = "#FBB4AE",   # 淡红
+  "disgust" = "#B3CDE0",
+  "fear" = "#B3CDE0",
+  "joy" = "#FBB4AE",
+  "sadness" = "#B3CDE0",
+  "surprise" = "#FBB4AE",
+  "trust" = "#FBB4AE"
+)
+```
+
+
+
+```{r}
+ggplot(before_summary, aes(x = reorder(emotion, -count), y = count, fill = emotion)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = party_colors) +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  labs(title = "Emotion Distribution Before",
+       x = "Emotion",
+       y = "Count")
+
+
+ggplot(after_summary, aes(x = reorder(emotion, -count), y = count, fill = emotion)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = party_colors) +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  labs(title = "Emotion Distribution After",
+       x = "Emotion",
+       y = "Count")
+```
+
+```{r}
+emotion_summaries[["liberal_comments_after_emotion_summary"]]
+```
+
